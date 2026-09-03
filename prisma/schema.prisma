@@ -1,0 +1,203 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WorkspaceKind {
+  SHORT_FORM
+  PODCAST
+  STREAM
+}
+
+enum SourceKind {
+  UPLOAD
+  YOUTUBE_URL
+  REMOTE_URL
+}
+
+enum MediaStatus {
+  PENDING_UPLOAD
+  READY
+  ANALYZING
+  FAILED
+}
+
+enum JobKind {
+  AI_ANALYSIS
+  RENDER
+}
+
+enum JobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELED
+}
+
+enum ClipStatus {
+  SUGGESTED
+  SELECTED
+  RENDERING
+  EXPORTED
+  REJECTED
+}
+
+enum ExportPreset {
+  TIKTOK_9_16
+  REELS_9_16
+  SHORTS_9_16
+  SQUARE_1_1
+  LANDSCAPE_16_9
+  PODCAST_AUDIOGRAM
+}
+
+model AnonymousDevice {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  label     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  projects  Project[]
+}
+
+model Project {
+  id          String          @id @default(cuid())
+  deviceId    String
+  device      AnonymousDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  title       String
+  workspace   WorkspaceKind   @default(SHORT_FORM)
+  description String?
+  sourceUrl   String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  media       SourceMedia[]
+  transcripts TranscriptSegment[]
+  clips       ClipCandidate[]
+  analyses    AiAnalysisResult[]
+  jobs        RenderJob[]
+  exports     ExportAsset[]
+
+  @@index([deviceId, updatedAt])
+}
+
+model SourceMedia {
+  id          String      @id @default(cuid())
+  projectId   String
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  kind        SourceKind
+  status      MediaStatus @default(PENDING_UPLOAD)
+  fileName    String?
+  mimeType    String?
+  sizeBytes   BigInt?
+  durationSec Float?
+  width       Int?
+  height      Int?
+  objectKey   String?
+  originalUrl String?
+  error       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  analyses    AiAnalysisResult[]
+  clips       ClipCandidate[]
+  jobs        RenderJob[]
+}
+
+model TranscriptSegment {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  speaker   String?
+  startSec  Float
+  endSec    Float
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([projectId, startSec])
+}
+
+model ClipCandidate {
+  id             String       @id @default(cuid())
+  projectId      String
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceMediaId  String?
+  sourceMedia    SourceMedia? @relation(fields: [sourceMediaId], references: [id], onDelete: SetNull)
+  status         ClipStatus   @default(SUGGESTED)
+  workspace      WorkspaceKind
+  title          String
+  hook           String
+  startSec       Float
+  endSec         Float
+  score          Int
+  reason         String
+  captionStyle   String?
+  cropSuggestion Json?
+  platformCopy   Json?
+  tags           String[]     @default([])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  exports        ExportAsset[]
+  jobs           RenderJob[]
+
+  @@index([projectId, score])
+}
+
+model AiAnalysisResult {
+  id            String       @id @default(cuid())
+  projectId     String
+  project       Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceMediaId String?
+  sourceMedia   SourceMedia? @relation(fields: [sourceMediaId], references: [id], onDelete: SetNull)
+  workspace     WorkspaceKind
+  model         String
+  summary       String
+  raw           Json
+  createdAt     DateTime     @default(now())
+}
+
+model RenderJob {
+  id            String          @id @default(cuid())
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceMediaId String?
+  sourceMedia   SourceMedia?    @relation(fields: [sourceMediaId], references: [id], onDelete: SetNull)
+  clipId        String?
+  clip          ClipCandidate?  @relation(fields: [clipId], references: [id], onDelete: SetNull)
+  kind          JobKind
+  status        JobStatus       @default(QUEUED)
+  preset        ExportPreset?
+  progress      Int             @default(0)
+  attempts      Int             @default(0)
+  payload       Json
+  error         String?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  exportAsset   ExportAsset?
+}
+
+model ExportAsset {
+  id          String         @id @default(cuid())
+  projectId   String
+  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  clipId      String?
+  clip        ClipCandidate? @relation(fields: [clipId], references: [id], onDelete: SetNull)
+  jobId       String?        @unique
+  job         RenderJob?     @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  preset      ExportPreset
+  objectKey   String
+  fileName    String
+  mimeType    String
+  sizeBytes   BigInt?
+  durationSec Float?
+  createdAt   DateTime       @default(now())
+}
