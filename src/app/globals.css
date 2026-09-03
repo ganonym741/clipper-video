@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 48 33% 97%;
+  --foreground: 35 8% 8%;
+  --card: 0 0% 100%;
+  --card-foreground: 35 8% 8%;
+  --primary: 35 8% 8%;
+  --primary-foreground: 48 33% 97%;
+  --secondary: 185 71% 56%;
+  --secondary-foreground: 35 8% 8%;
+  --muted: 42 18% 90%;
+  --muted-foreground: 28 7% 38%;
+  --accent: 80 85% 68%;
+  --accent-foreground: 35 8% 8%;
+  --destructive: 5 100% 69%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 36 13% 82%;
+  --input: 36 13% 82%;
+  --ring: 185 71% 45%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+html {
+  background: hsl(var(--background));
+}
+
+body {
+  min-height: 100vh;
+  background:
+    linear-gradient(135deg, rgba(200, 242, 107, 0.22), transparent 28%),
+    linear-gradient(225deg, rgba(53, 200, 232, 0.18), transparent 24%),
+    hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: #c8f26b;
+  color: #171614;
+}
+
+.studio-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(23, 22, 20, 0.28) transparent;
+}
+
+.studio-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.studio-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(23, 22, 20, 0.24);
+  border-radius: 999px;
+}
