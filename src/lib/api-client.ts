@@ -220,6 +220,12 @@ export const studioApi = {
       method: "POST"
     });
   },
+  mediaPreview(token: string, mediaId: string) {
+    return requestJson<import("@/types/studio").PreviewRecord>(
+      `/api/media/${mediaId}/preview`,
+      token
+    );
+  },
   assetDownload(token: string, assetId: string) {
     return requestJson<{ url: string; fileName: string }>(
       `/api/assets/${assetId}/download`,

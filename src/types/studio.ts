@@ -95,3 +95,10 @@ export type ExportRecord = {
   durationSec: number | null;
   createdAt: string;
 };
+
+export type PreviewRecord = {
+  playable: boolean;
+  url: string | null;
+  label: string;
+  reason?: string;
+};

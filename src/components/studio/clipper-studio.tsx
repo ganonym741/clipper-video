@@ -8,11 +8,13 @@ import {
   Check,
   Clock3,
   Download,
+  ExternalLink,
   FileVideo,
   Film,
   LinkIcon,
   Loader2,
   Plus,
+  Play,
   Scissors,
   Send,
   Sparkles,
@@ -28,7 +30,13 @@ import { exportPresets } from "@/lib/exports";
 import { secondsToTimecode } from "@/lib/utils";
 import { workspaceCopy, workspaceKinds } from "@/lib/workspaces";
 import { useStudioStore } from "@/store/studio-store";
-import type { ClipRecord, JobRecord, SourceMediaRecord, StudioProject } from "@/types/studio";
+import type {
+  ClipRecord,
+  JobRecord,
+  PreviewRecord,
+  SourceMediaRecord,
+  StudioProject
+} from "@/types/studio";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +62,11 @@ type LocalProgress = {
   label: string;
   detail: string;
   value: number;
+};
+
+type ReviewTarget = {
+  kind: "source" | "export";
+  id: string;
 };
 
 function formatBytes(value: string | null) {
@@ -107,6 +120,7 @@ export function ClipperStudio() {
   const [importUrl, setImportUrl] = useState("");
   const [manualClip, setManualClip] = useState(defaultManualClip);
   const [uploadProgress, setUploadProgress] = useState<LocalProgress | null>(null);
+  const [reviewTarget, setReviewTarget] = useState<ReviewTarget | null>(null);
 
   const projectsQuery = useQuery({
     queryKey: ["projects", token],
@@ -132,6 +146,26 @@ export function ClipperStudio() {
     activeProject?.jobs.filter((job) => job.status === "QUEUED" || job.status === "PROCESSING") ??
     [];
   const queuedJobs = activeJobs.filter((job) => job.status === "QUEUED");
+  const exportIds = activeProject?.exports.map((asset) => asset.id).join(",") ?? "";
+
+  const previewQuery = useQuery({
+    queryKey: ["review-preview", token, reviewTarget?.kind, reviewTarget?.id],
+    queryFn: async (): Promise<PreviewRecord> => {
+      if (!reviewTarget) throw new Error("No review target selected");
+
+      if (reviewTarget.kind === "source") {
+        return studioApi.mediaPreview(token!, reviewTarget.id);
+      }
+
+      const asset = await studioApi.assetDownload(token!, reviewTarget.id);
+      return {
+        playable: true,
+        url: asset.url,
+        label: asset.fileName
+      };
+    },
+    enabled: Boolean(token && reviewTarget)
+  });
 
   useEffect(() => {
     if (!selectedProjectId && projects[0]) {
@@ -151,6 +185,36 @@ export function ClipperStudio() {
       setSelectedClipId(workspaceClips[0].id);
     }
   }, [selectedClipId, setSelectedClipId, workspaceClips]);
+
+  useEffect(() => {
+    if (!activeProject) {
+      setReviewTarget(null);
+      return;
+    }
+
+    const targetStillExists =
+      reviewTarget?.kind === "source"
+        ? activeProject.media.some((media) => media.id === reviewTarget.id)
+        : reviewTarget?.kind === "export"
+          ? activeProject.exports.some((asset) => asset.id === reviewTarget.id)
+          : false;
+
+    if (targetStillExists) {
+      return;
+    }
+
+    if (readyMedia) {
+      setReviewTarget({ kind: "source", id: readyMedia.id });
+      return;
+    }
+
+    if (activeProject.exports[0]) {
+      setReviewTarget({ kind: "export", id: activeProject.exports[0].id });
+      return;
+    }
+
+    setReviewTarget(null);
+  }, [activeProject, exportIds, readyMedia, reviewTarget]);
 
   const invalidateProjects = () =>
     queryClient.invalidateQueries({
@@ -516,7 +580,12 @@ export function ClipperStudio() {
 
               <div className="space-y-2">
                 {activeProject?.media.map((media) => (
-                  <MediaRow key={media.id} media={media} />
+                  <MediaRow
+                    key={media.id}
+                    media={media}
+                    active={reviewTarget?.kind === "source" && reviewTarget.id === media.id}
+                    onReview={() => setReviewTarget({ kind: "source", id: media.id })}
+                  />
                 ))}
               </div>
             </section>
@@ -526,19 +595,15 @@ export function ClipperStudio() {
             <div className="min-w-0 space-y-4 p-4 sm:p-5">
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
                 <div className="rounded-md border bg-studio-ink p-3 text-white">
-                  <div className="aspect-video overflow-hidden rounded-sm bg-black">
-                    <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-                      <Film className="h-12 w-12 text-studio-lime" aria-hidden />
-                      <div>
-                        <p className="font-black">{activeProject?.title ?? "No active project"}</p>
-                        <p className="text-sm text-white/70">
-                          {readyMedia
-                            ? readyMedia.fileName ?? readyMedia.originalUrl
-                            : "Add a source to unlock AI analysis and rendering."}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                  <ReviewPlayer
+                    project={activeProject}
+                    preview={previewQuery.data}
+                    loading={previewQuery.isFetching}
+                    error={previewQuery.error}
+                    reviewTarget={reviewTarget}
+                    onReviewSource={(mediaId) => setReviewTarget({ kind: "source", id: mediaId })}
+                    onReviewExport={(assetId) => setReviewTarget({ kind: "export", id: assetId })}
+                  />
                   <Timeline clip={selectedClip} media={readyMedia} />
                 </div>
 
@@ -741,20 +806,46 @@ export function ClipperStudio() {
                 </div>
                 <div className="mt-3 space-y-2">
                   {activeProject?.exports.map((asset) => (
-                    <button
+                    <div
                       key={asset.id}
-                      className="flex w-full items-center justify-between gap-3 rounded-md border p-3 text-left transition hover:border-studio-ink"
-                      onClick={() => downloadMutation.mutate(asset.id)}
-                      type="button"
+                      className={`rounded-md border p-3 transition ${
+                        reviewTarget?.kind === "export" && reviewTarget.id === asset.id
+                          ? "border-studio-ink bg-muted"
+                          : "bg-white"
+                      }`}
                     >
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-bold">{asset.fileName}</span>
-                        <span className="text-xs text-muted-foreground">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-bold">{asset.fileName}</span>
+                          <span className="text-xs text-muted-foreground">
                           {exportPresets[asset.preset].label}
+                          </span>
                         </span>
-                      </span>
-                      <Download className="h-4 w-4 shrink-0" aria-hidden />
-                    </button>
+                      </div>
+                      <div className="mt-3 flex gap-2">
+                        <Button
+                          className="flex-1"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setReviewTarget({ kind: "export", id: asset.id })}
+                        >
+                          <Play className="h-4 w-4" aria-hidden />
+                          Review
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => downloadMutation.mutate(asset.id)}
+                          disabled={downloadMutation.isPending}
+                          title="Download export"
+                        >
+                          {downloadMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                          ) : (
+                            <Download className="h-4 w-4" aria-hidden />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
                   ))}
                   {!activeProject?.exports.length && (
                     <p className="text-sm text-muted-foreground">Rendered files will appear here.</p>
@@ -769,12 +860,24 @@ export function ClipperStudio() {
   );
 }
 
-function MediaRow({ media }: { media: SourceMediaRecord }) {
+function MediaRow({
+  media,
+  active,
+  onReview
+}: {
+  media: SourceMediaRecord;
+  active: boolean;
+  onReview: () => void;
+}) {
   const statusVariant =
     media.status === "READY" ? "accent" : media.status === "FAILED" ? "destructive" : "muted";
 
   return (
-    <div className="rounded-md border bg-white p-3">
+    <div
+      className={`rounded-md border bg-white p-3 transition ${
+        active ? "border-studio-ink shadow-sm" : ""
+      }`}
+    >
       <div className="flex items-start gap-3">
         <FileVideo className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
         <div className="min-w-0 flex-1">
@@ -787,6 +890,16 @@ function MediaRow({ media }: { media: SourceMediaRecord }) {
         </div>
         <Badge variant={statusVariant}>{media.status.replace("_", " ")}</Badge>
       </div>
+      <Button
+        className="mt-3 w-full"
+        size="sm"
+        variant="outline"
+        onClick={onReview}
+        disabled={media.status !== "READY"}
+      >
+        <Play className="h-4 w-4" aria-hidden />
+        Review source
+      </Button>
       {media.error && <p className="mt-2 text-xs text-destructive">{media.error}</p>}
     </div>
   );
@@ -813,6 +926,120 @@ function Timeline({
       </div>
       <div className="relative h-8 overflow-hidden rounded-sm bg-white/12">
         <div className="absolute inset-y-0 bg-studio-lime" style={{ left: `${startPercent}%`, width: `${widthPercent}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function ReviewPlayer({
+  project,
+  preview,
+  loading,
+  error,
+  reviewTarget,
+  onReviewSource,
+  onReviewExport
+}: {
+  project: StudioProject | undefined;
+  preview: PreviewRecord | undefined;
+  loading: boolean;
+  error: Error | null;
+  reviewTarget: ReviewTarget | null;
+  onReviewSource: (mediaId: string) => void;
+  onReviewExport: (assetId: string) => void;
+}) {
+  const readySources = project?.media.filter((media) => media.status === "READY") ?? [];
+  const exports = project?.exports ?? [];
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-black">
+            {preview?.label ?? project?.title ?? "Review player"}
+          </p>
+          <p className="text-xs text-white/60">
+            {reviewTarget?.kind === "export" ? "Rendered export" : "Source media"}
+          </p>
+        </div>
+        <div className="studio-scrollbar flex max-w-full gap-2 overflow-x-auto pb-1">
+          {readySources.map((media) => (
+            <button
+              key={media.id}
+              className={`flex h-8 shrink-0 items-center gap-2 rounded-sm px-3 text-xs font-bold transition ${
+                reviewTarget?.kind === "source" && reviewTarget.id === media.id
+                  ? "bg-studio-lime text-studio-ink"
+                  : "bg-white/10 text-white hover:bg-white/18"
+              }`}
+              onClick={() => onReviewSource(media.id)}
+              type="button"
+              title={media.fileName ?? "Review source"}
+            >
+              <FileVideo className="h-3.5 w-3.5" aria-hidden />
+              Source
+            </button>
+          ))}
+          {exports.map((asset) => (
+            <button
+              key={asset.id}
+              className={`flex h-8 shrink-0 items-center gap-2 rounded-sm px-3 text-xs font-bold transition ${
+                reviewTarget?.kind === "export" && reviewTarget.id === asset.id
+                  ? "bg-studio-cyan text-studio-ink"
+                  : "bg-white/10 text-white hover:bg-white/18"
+              }`}
+              onClick={() => onReviewExport(asset.id)}
+              type="button"
+              title={asset.fileName}
+            >
+              <Play className="h-3.5 w-3.5" aria-hidden />
+              {exportPresets[asset.preset].label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="aspect-video overflow-hidden rounded-sm bg-black">
+        {loading ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+            <Loader2 className="h-10 w-10 animate-spin text-studio-lime" aria-hidden />
+            <p className="text-sm font-bold text-white/80">Preparing preview</p>
+          </div>
+        ) : error ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+            <FileVideo className="h-10 w-10 text-studio-coral" aria-hidden />
+            <p className="max-w-md text-sm text-white/75">{error.message}</p>
+          </div>
+        ) : preview?.playable && preview.url ? (
+          <video
+            key={preview.url}
+            className="h-full w-full bg-black object-contain"
+            src={preview.url}
+            controls
+            preload="metadata"
+          />
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+            <Film className="h-12 w-12 text-studio-lime" aria-hidden />
+            <div>
+              <p className="font-black">{project?.title ?? "No active project"}</p>
+              <p className="mt-1 max-w-md text-sm text-white/70">
+                {preview?.reason ??
+                  "Upload a video or select a rendered export to review playback here."}
+              </p>
+              {preview?.url && (
+                <Button
+                  className="mt-4"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => window.open(preview.url!, "_blank", "noopener,noreferrer")}
+                >
+                  <ExternalLink className="h-4 w-4" aria-hidden />
+                  Open source
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
