@@ -48,6 +48,10 @@ The compose file starts:
 - `web`: Next.js on `http://localhost:3999`
 - `worker`: BullMQ worker for Gemini analysis and FFmpeg renders
 
+The compose file intentionally does not set a fixed `image:` name. Platforms like Coolify
+build services independently, and a shared local tag such as `clipper-video:local` can cause
+build target collisions.
+
 Optional Docker helpers:
 
 ```bash

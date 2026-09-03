@@ -1,12 +1,29 @@
+x-app-build: &app-build
+  context: .
+  dockerfile: Dockerfile
+
+x-app-environment: &app-environment
+  DATABASE_URL: ${DATABASE_URL}
+  REDIS_URL: ${REDIS_URL}
+  RUSTFS_ENDPOINT: ${RUSTFS_ENDPOINT}
+  RUSTFS_REGION: ${RUSTFS_REGION:-us-east-1}
+  RUSTFS_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY_ID}
+  RUSTFS_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_ACCESS_KEY}
+  RUSTFS_BUCKET: ${RUSTFS_BUCKET:-clipper-studio}
+  RUSTFS_FORCE_PATH_STYLE: ${RUSTFS_FORCE_PATH_STYLE:-true}
+  RUSTFS_PUBLIC_BASE_URL: ${RUSTFS_PUBLIC_BASE_URL:-}
+  GEMINI_API_KEY: ${GEMINI_API_KEY}
+  GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.7-flash}
+  FFMPEG_PATH: ${FFMPEG_PATH:-ffmpeg}
+  YTDLP_PATH: ${YTDLP_PATH:-yt-dlp}
+  APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3999}
+  NODE_ENV: production
+
 services:
   web:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: clipper-studio:local
+    build: *app-build
     command: bun run start
-    env_file:
-      - .env
+    environment: *app-environment
     ports:
       - "3999:3999"
     extra_hosts:
@@ -14,13 +31,9 @@ services:
     restart: unless-stopped
 
   worker:
-    image: clipper-studio:local
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: *app-build
     command: bun run worker
-    env_file:
-      - .env
+    environment: *app-environment
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
@@ -28,26 +41,18 @@ services:
       - web
 
   migrate:
-    image: clipper-studio:local
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: *app-build
     command: bun run db:apply
-    env_file:
-      - .env
+    environment: *app-environment
     extra_hosts:
       - "host.docker.internal:host-gateway"
     profiles:
       - tools
 
   doctor:
-    image: clipper-studio:local
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: *app-build
     command: bun run doctor
-    env_file:
-      - .env
+    environment: *app-environment
     extra_hosts:
       - "host.docker.internal:host-gateway"
     profiles:
