@@ -2,8 +2,8 @@ import { spawn } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { ExportPreset } from "@prisma/client";
-import { exportPresets } from "@/lib/exports";
-import { getFfmpegPath } from "@/server/tool-paths";
+import { exportPresets } from "../lib/exports";
+import { getFfmpegPath } from "./tool-paths";
 
 export type FfmpegRenderInput = {
   inputPath: string;

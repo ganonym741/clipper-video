@@ -1,7 +1,7 @@
 import { Queue } from "bullmq";
 import IORedis from "ioredis";
 import type { ExportPreset, WorkspaceKind } from "@prisma/client";
-import { getServerEnv } from "@/lib/env";
+import { getServerEnv } from "../lib/env";
 
 export const AI_QUEUE_NAME = "clipper-ai-analysis";
 export const RENDER_QUEUE_NAME = "clipper-render";

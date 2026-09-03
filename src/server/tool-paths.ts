@@ -1,5 +1,5 @@
 import ffmpegStatic from "ffmpeg-static";
-import { getServerEnv } from "@/lib/env";
+import { getServerEnv } from "../lib/env";
 
 export function getFfmpegPath() {
   const configuredPath = getServerEnv().FFMPEG_PATH;

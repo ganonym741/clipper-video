@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import type { SourceMedia, WorkspaceKind } from "@prisma/client";
-import { aiAnalysisSchema, type AiAnalysis } from "@/lib/clip-schemas";
-import { getServerEnv } from "@/lib/env";
-import { workspaceCopy } from "@/lib/workspaces";
+import { aiAnalysisSchema, type AiAnalysis } from "../lib/clip-schemas";
+import { getServerEnv } from "../lib/env";
+import { workspaceCopy } from "../lib/workspaces";
 
 type GeminiFile = {
   name: string;

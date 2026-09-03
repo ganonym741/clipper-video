@@ -3,8 +3,8 @@ import { createWriteStream } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { pipeline } from "node:stream/promises";
-import { getServerEnv } from "@/lib/env";
-import { extractFirstUrl } from "@/lib/url";
+import { getServerEnv } from "../lib/env";
+import { extractFirstUrl } from "../lib/url";
 
 export function isYouTubeUrl(url: string) {
   return /(^|\.)youtube\.com|youtu\.be/i.test(new URL(extractFirstUrl(url)).hostname);

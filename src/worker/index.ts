@@ -3,17 +3,17 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { Worker } from "bullmq";
 import { JobKind, JobStatus, type ExportPreset, type WorkspaceKind } from "@prisma/client";
-import { exportPresets } from "@/lib/exports";
-import { prisma } from "@/lib/prisma";
-import { AI_QUEUE_NAME, RENDER_QUEUE_NAME, getRedisConnection } from "@/server/queues";
-import { renderClip } from "@/server/ffmpeg";
-import { analyzeWithGemini } from "@/server/gemini";
+import { exportPresets } from "../lib/exports";
+import { prisma } from "../lib/prisma";
+import { AI_QUEUE_NAME, RENDER_QUEUE_NAME, getRedisConnection } from "../server/queues";
+import { renderClip } from "../server/ffmpeg";
+import { analyzeWithGemini } from "../server/gemini";
 import {
   downloadObjectToFile,
   exportObjectKey,
   uploadFileToObject
-} from "@/server/storage";
-import { downloadRemoteVideo, explainVideoDownloaderError } from "@/server/video-download";
+} from "../server/storage";
+import { downloadRemoteVideo, explainVideoDownloaderError } from "../server/video-download";
 
 async function withTempDir<T>(prefix: string, callback: (dir: string) => Promise<T>) {
   const dir = await mkdtemp(join(tmpdir(), prefix));

@@ -6,8 +6,8 @@ import {
   PutObjectCommand,
   S3Client
 } from "@aws-sdk/client-s3";
-import { explainStorageError } from "@/server/storage";
-import { getFfmpegPath } from "@/server/tool-paths";
+import { explainStorageError } from "../server/storage";
+import { getFfmpegPath } from "../server/tool-paths";
 
 if (existsSync(".env")) {
   process.loadEnvFile?.(".env");
