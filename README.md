@@ -35,6 +35,38 @@ Local file uploads go through `/api/media/direct-upload` so RustFS CORS is not r
 for the MVP. YouTube URL rendering requires `yt-dlp`; Smart Auto Clip can still analyze
 public YouTube URLs through Gemini.
 
+## Docker Compose
+
+Run the web app and queue worker together:
+
+```bash
+docker compose up --build
+```
+
+The compose file starts:
+
+- `web`: Next.js on `http://localhost:3999`
+- `worker`: BullMQ worker for Gemini analysis and FFmpeg renders
+
+Optional Docker helpers:
+
+```bash
+docker compose --profile tools run --rm migrate
+docker compose --profile tools run --rm doctor
+```
+
+Both services read the same `.env` file and expect PostgreSQL, Redis, and RustFS to be reachable
+from inside Docker.
+
+If PostgreSQL or Redis runs on your host machine, do not use `localhost` in `.env` for Docker.
+Use `host.docker.internal`, for example:
+
+```env
+DATABASE_URL="postgresql://user:password@host.docker.internal:5433/clipper?schema=public"
+REDIS_URL="redis://default:password@host.docker.internal:5379"
+APP_BASE_URL="http://localhost:3999"
+```
+
 If uploads return `AccessDenied`, check the RustFS access key permissions. A public bucket
 or CORS rule for `http://localhost:3999` does not grant the Next.js server permission to
 write objects. The configured key needs write/read/delete access to `RUSTFS_BUCKET`.
